@@ -45,6 +45,14 @@ fn main() -> ! {
             },
             tmod::Axis::Tilt,
         );
+        turret.mv(
+            Move {
+                degrees: 25.,
+                fwd: true,
+                velocity: 360. / 10.,
+            },
+            tmod::Axis::Pan,
+        );
         ufmt::uwriteln!(&mut serial, "halt-out").unwrap();
         arduino_hal::delay_ms(2000);
         turret.mv(
@@ -54,6 +62,14 @@ fn main() -> ! {
                 velocity: 360. / 10.,
             },
             tmod::Axis::Tilt,
+        );
+        turret.mv(
+            Move {
+                degrees: 25.,
+                fwd: false,
+                velocity: 360. / 10.,
+            },
+            tmod::Axis::Pan,
         );
         ufmt::uwriteln!(&mut serial, "back").unwrap();
         arduino_hal::delay_ms(2000);
