@@ -11,7 +11,8 @@ pub enum Axis {
 
 pub struct Turret {
     pub pins: TurretPins,
-    pub pos: (u16, u16),
+    // (pan, tilt)
+    pub pos_steps: (u32, u32),
     pan_teeth: u16,
     tilt_teeth: u16,
     pan_drive_teeth: u16,
@@ -28,7 +29,7 @@ impl Turret {
     ) -> Self {
         Self {
             pins,
-            pos: (0, 0),
+            pos_steps: (0, 0),
             pan_teeth,
             tilt_teeth,
             pan_drive_teeth,
@@ -62,10 +63,14 @@ impl Turret {
         let steps_per_second = floorf(
             /* deg / s */ mv.velocity * /* step / deg */ steps_per_degree,
         ) as u32;
-        self.mv_steps(num_steps, steps_per_second, axis);
+        self.mv_steps(num_steps, steps_per_second, &axis);
+        self.pos_steps = match &axis {
+            Axis::Pan => (self.pos_steps.0 + num_steps, self.pos_steps.1),
+            Axis::Tilt => (self.pos_steps.0, self.pos_steps.1 + num_steps),
+        };
     }
 
-    fn mv_steps(&mut self, steps: u32, steps_per_second: u32, axis: Axis) {
+    fn mv_steps(&mut self, steps: u32, steps_per_second: u32, axis: &Axis) {
         let pin = match axis {
             Axis::Pan => &mut self.pins.pan_step,
             Axis::Tilt => &mut self.pins.tilt_step,
