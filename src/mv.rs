@@ -1,6 +1,6 @@
 use libm::roundf;
 
-const MOTOR_MICRO_STEPS_PER_REVOLUTION: u16 = 400 * 8;
+use crate::motor::MOTOR_MICRO_STEPS_PER_REVOLUTION;
 
 pub struct Move {
     /**
@@ -14,7 +14,7 @@ pub struct Move {
     /**
      * Degrees_per_second
      */
-    pub velocity: u32,
+    pub velocity: f32,
 }
 
 impl Move {
