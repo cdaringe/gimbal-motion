@@ -45,7 +45,7 @@ impl Turret {
         steps_per_degree(self.tilt_drive_teeth, self.tilt_teeth)
     }
 
-    pub fn mv(&mut self, mv: Move, axis: Axis) {
+    pub fn mv(&mut self, mv: Move, axis: Axis) -> u32 {
         // setup direction
         match (mv.fwd, &axis) {
             (true, Axis::Pan) => self.pins.pan_dir.set_high(),
@@ -63,14 +63,15 @@ impl Turret {
         let steps_per_second = floorf(
             /* deg / s */ mv.velocity * /* step / deg */ steps_per_degree,
         ) as u32;
-        self.mv_steps(num_steps, steps_per_second, &axis);
+        let delay_micros = self.mv_steps(num_steps, steps_per_second, &axis);
         self.pos_steps = match &axis {
             Axis::Pan => (self.pos_steps.0 + num_steps, self.pos_steps.1),
             Axis::Tilt => (self.pos_steps.0, self.pos_steps.1 + num_steps),
         };
+        delay_micros
     }
 
-    fn mv_steps(&mut self, steps: u32, steps_per_second: u32, axis: &Axis) {
+    fn mv_steps(&mut self, steps: u32, steps_per_second: u32, axis: &Axis) -> u32 {
         let pin = match axis {
             Axis::Pan => &mut self.pins.pan_step,
             Axis::Tilt => &mut self.pins.tilt_step,
@@ -84,5 +85,6 @@ impl Turret {
             pin.set_low();
             arduino_hal::delay_us(delay_micros);
         }
+        delay_micros
     }
 }

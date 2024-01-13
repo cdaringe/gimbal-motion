@@ -1,5 +1,6 @@
 #![cfg_attr(not(test), no_std)]
 #![no_main]
+
 use arduino_hal::hal::usart::BaudrateArduinoExt;
 use panic_halt as _;
 use turret::{mv::Move, turret as tmod, turret_pins::TurretPins};
@@ -23,7 +24,6 @@ fn main() -> ! {
         pins.d1.into_output(),
         BaudrateArduinoExt::into_baudrate(57600),
     );
-
     let tpins = TurretPins {
         pan_dir: pins.d4.into_output().downgrade(),
         pan_step: pins.d6.into_output().downgrade(),
@@ -33,8 +33,9 @@ fn main() -> ! {
     };
 
     let mut turret = tmod::Turret::new(tpins, PAN_TEETH, DRIVE_TEETH, TILT_TEETH, DRIVE_TEETH);
-
+    // let (_rx, tx) = serial.split();
     loop {
+        // maybe_read_msg(&rx).and_then(parse_cmd);
         turret.pins.led.toggle();
         ufmt::uwriteln!(&mut serial, "out").unwrap();
         turret.mv(
@@ -55,7 +56,7 @@ fn main() -> ! {
         );
         ufmt::uwriteln!(&mut serial, "halt-out").unwrap();
         arduino_hal::delay_ms(2000);
-        turret.mv(
+        let delay_micros = turret.mv(
             Move {
                 degrees: 25.,
                 fwd: false,
@@ -63,6 +64,7 @@ fn main() -> ! {
             },
             tmod::Axis::Tilt,
         );
+        ufmt::uwriteln!(&mut serial, "delaymicros: {}", delay_micros).unwrap();
         turret.mv(
             Move {
                 degrees: 25.,
