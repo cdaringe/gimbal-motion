@@ -71,18 +71,18 @@ impl Gimbal {
         };
         // setup direction
         let _ = match (&mv.fwd, &axis) {
-            (true, Axis::Pan) => pin.set_high().expect("unable to set dir"),
-            (true, Axis::Tilt) => pin.set_high().expect("unable to set dir"),
-            (false, Axis::Pan) => pin.set_low().expect("unable to set dir"),
-            (false, Axis::Tilt) => pin.set_low().expect("unable to set dir"),
+            (true, Axis::Pan) => pin.high(),
+            (true, Axis::Tilt) => pin.high(),
+            (false, Axis::Pan) => pin.low(),
+            (false, Axis::Tilt) => pin.low(),
         };
         let steps_per_microsecond = (steps_per_second as f32) / (1_000_000.);
         let microseconds_per_step = 1. / steps_per_microsecond;
         let delay_micros = libm::floorf(microseconds_per_step / 2.) as u32;
         for _ in 0..steps {
-            pin.set_high().expect("set pin");
+            pin.high();
             FreeRtos::delay_us(delay_micros);
-            pin.set_low().expect("set pin");
+            pin.low();
             FreeRtos::delay_us(delay_micros);
         }
     }

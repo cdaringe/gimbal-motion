@@ -21,6 +21,7 @@ fn main() -> anyhow::Result<()> {
     // It is necessary to call this function once. Otherwise some patches to the runtime
     // implemented by esp-idf-sys might not link properly. See https://github.com/esp-rs/esp-idf-template/issues/71
     sys::link_patches();
+
     let peripherals = Peripherals::take()?;
     let pins = peripherals.pins;
 
@@ -32,11 +33,11 @@ fn main() -> anyhow::Result<()> {
     // );
 
     let tpins = GimbalPins {
-        pan_dir: PinDriver::output(pins.gpio14.downgrade_output()).expect("obtained pin"),
-        pan_step: PinDriver::output(pins.gpio15.downgrade_output()).expect("obtained pin"),
+        pan_dir: pins.gpio14.downgrade_output().into(),
+        pan_step: pins.gpio15.downgrade_output().into(),
         pan_endstop: PinDriver::input(pins.gpio25.downgrade_input()).expect("obtained pin"),
-        tilt_dir: PinDriver::output(pins.gpio22.downgrade_output()).expect("obtained pin"),
-        tilt_step: PinDriver::output(pins.gpio21.downgrade_output()).expect("obtained pin"),
+        tilt_dir: pins.gpio22.downgrade_output().into(),
+        tilt_step: pins.gpio21.downgrade_output().into(),
         tilt_endstop: PinDriver::input(pins.gpio26.downgrade_input()).expect("obtained pin"),
         // led: pins.d13.into_output().downgrade(),
     };
