@@ -1,78 +1,88 @@
-#![cfg_attr(not(test), no_std)]
-#![no_main]
-use arduino_hal::hal::usart::BaudrateArduinoExt;
-use panic_halt as _;
-use turret::{mv::Move, turret as tmod, turret_pins::TurretPins};
+use esp_idf_svc::hal::{
+    delay::FreeRtos,
+    gpio::{InputPin, OutputPin, PinDriver},
+    peripherals::Peripherals,
+    sys,
+};
+use gimbal_test::{
+    gimbal::{Axis, Gimbal},
+    gimbal_pins::GimbalPins,
+    mv::Move,
+};
 
 /*
  * https://github.com/Rahix/avr-hal/tree/main/examples
  */
-
 const DRIVE_TEETH: u16 = 16;
 const TILT_TEETH: u16 = 160;
 const PAN_TEETH: u16 = 128;
 
-#[arduino_hal::entry]
-fn main() -> ! {
-    let dp = arduino_hal::Peripherals::take().unwrap();
-    let pins = arduino_hal::pins!(dp);
+fn main() -> anyhow::Result<()> {
+    // It is necessary to call this function once. Otherwise some patches to the runtime
+    // implemented by esp-idf-sys might not link properly. See https://github.com/esp-rs/esp-idf-template/issues/71
+    sys::link_patches();
+    let peripherals = Peripherals::take()?;
+    let pins = peripherals.pins;
 
-    let mut serial = arduino_hal::Usart::new(
-        dp.USART0,
-        pins.d0,
-        pins.d1.into_output(),
-        BaudrateArduinoExt::into_baudrate(57600),
-    );
+    // let mut serial = arduino_hal::Usart::new(
+    //     dp.USART0,
+    //     pins.d0,
+    //     pins.d1.into_output(),
+    //     BaudrateArduinoExt::into_baudrate(57600),
+    // );
 
-    let tpins = TurretPins {
-        pan_dir: pins.d4.into_output().downgrade(),
-        pan_step: pins.d6.into_output().downgrade(),
-        tilt_dir: pins.d3.into_output().downgrade(),
-        tilt_step: pins.d2.into_output().downgrade(),
-        led: pins.d13.into_output().downgrade(),
+    let tpins = GimbalPins {
+        pan_dir: PinDriver::output(pins.gpio14.downgrade_output()).expect("obtained pin"),
+        pan_step: PinDriver::output(pins.gpio15.downgrade_output()).expect("obtained pin"),
+        pan_endstop: PinDriver::input(pins.gpio25.downgrade_input()).expect("obtained pin"),
+        tilt_dir: PinDriver::output(pins.gpio22.downgrade_output()).expect("obtained pin"),
+        tilt_step: PinDriver::output(pins.gpio21.downgrade_output()).expect("obtained pin"),
+        tilt_endstop: PinDriver::input(pins.gpio26.downgrade_input()).expect("obtained pin"),
+        // led: pins.d13.into_output().downgrade(),
     };
 
-    let mut turret = tmod::Turret::new(tpins, PAN_TEETH, DRIVE_TEETH, TILT_TEETH, DRIVE_TEETH);
+    let mut gimbal = Gimbal::new(tpins, PAN_TEETH, DRIVE_TEETH, TILT_TEETH, DRIVE_TEETH);
 
     loop {
-        turret.pins.led.toggle();
-        ufmt::uwriteln!(&mut serial, "out").unwrap();
-        turret.mv(
+        // gimbal.pins.led.toggle();
+        // ufmt::uwriteln!(&mut serial, "out").unwrap();
+        gimbal.mv(
             Move {
                 degrees: 25.,
                 fwd: true,
                 velocity: 360. / 10.,
             },
-            tmod::Axis::Tilt,
+            Axis::Tilt,
         );
-        turret.mv(
+        gimbal.mv(
             Move {
                 degrees: 25.,
                 fwd: true,
                 velocity: 360. / 10.,
             },
-            tmod::Axis::Pan,
+            Axis::Pan,
         );
-        ufmt::uwriteln!(&mut serial, "halt-out").unwrap();
-        arduino_hal::delay_ms(2000);
-        turret.mv(
+        // ufmt::uwriteln!(&mut serial, "halt-out").unwrap();
+        FreeRtos::delay_ms(2000);
+        gimbal.mv(
             Move {
                 degrees: 25.,
                 fwd: false,
                 velocity: 360. / 10.,
             },
-            tmod::Axis::Tilt,
+            Axis::Tilt,
         );
-        turret.mv(
+        gimbal.mv(
             Move {
                 degrees: 25.,
                 fwd: false,
                 velocity: 360. / 10.,
             },
-            tmod::Axis::Pan,
+            Axis::Pan,
         );
-        ufmt::uwriteln!(&mut serial, "back").unwrap();
-        arduino_hal::delay_ms(2000);
-        ufmt::uwriteln!(&mut serial, "halt-back").unwrap();
+        // ufmt::uwriteln!(&mut serial, "back").unwrap();
+        // arduino_hal::delay_ms(2000);
+        FreeRtos::delay_ms(2000);
+        // ufmt::uwriteln!(&mut serial, "halt-back").unwrap();
     }
 }

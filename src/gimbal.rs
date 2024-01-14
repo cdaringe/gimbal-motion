@@ -1,6 +1,7 @@
+use esp_idf_svc::hal::delay::FreeRtos;
 use libm::floorf;
 
-use crate::{motor::steps_per_degree, mv::Move, turret_pins::TurretPins};
+use crate::{gimbal_pins::GimbalPins, motor::steps_per_degree, mv::Move};
 
 // https://www.openimpulse.com/blog/products-page/product-category/42byghm809-stepper-motor-1-68-4-2-kg%E2%8B%85cm/
 // @todo is this the correct motor and steps?
@@ -9,8 +10,8 @@ pub enum Axis {
     Tilt,
 }
 
-pub struct Turret {
-    pub pins: TurretPins,
+pub struct Gimbal {
+    pub pins: GimbalPins,
     // (pan, tilt)
     pub pos_steps: (u32, u32),
     pan_teeth: u16,
@@ -19,9 +20,9 @@ pub struct Turret {
     tilt_drive_teeth: u16,
 }
 
-impl Turret {
+impl Gimbal {
     pub fn new(
-        pins: TurretPins,
+        pins: GimbalPins,
         pan_teeth: u16,
         pan_drive_teeth: u16,
         tilt_teeth: u16,
@@ -46,13 +47,6 @@ impl Turret {
     }
 
     pub fn mv(&mut self, mv: Move, axis: Axis) {
-        // setup direction
-        match (mv.fwd, &axis) {
-            (true, Axis::Pan) => self.pins.pan_dir.set_high(),
-            (true, Axis::Tilt) => self.pins.tilt_dir.set_high(),
-            (false, Axis::Pan) => self.pins.pan_dir.set_low(),
-            (false, Axis::Tilt) => self.pins.tilt_dir.set_low(),
-        };
         // calculate how many steps to take
         let steps_per_degree = match &axis {
             Axis::Pan => self.steps_per_degree_pan(),
@@ -63,26 +57,33 @@ impl Turret {
         let steps_per_second = floorf(
             /* deg / s */ mv.velocity * /* step / deg */ steps_per_degree,
         ) as u32;
-        self.mv_steps(num_steps, steps_per_second, &axis);
+        self.mv_steps(&mv, num_steps, steps_per_second, &axis);
         self.pos_steps = match &axis {
             Axis::Pan => (self.pos_steps.0 + num_steps, self.pos_steps.1),
             Axis::Tilt => (self.pos_steps.0, self.pos_steps.1 + num_steps),
         };
     }
 
-    fn mv_steps(&mut self, steps: u32, steps_per_second: u32, axis: &Axis) {
+    fn mv_steps(&mut self, mv: &Move, steps: u32, steps_per_second: u32, axis: &Axis) {
         let pin = match axis {
             Axis::Pan => &mut self.pins.pan_step,
             Axis::Tilt => &mut self.pins.tilt_step,
+        };
+        // setup direction
+        let _ = match (&mv.fwd, &axis) {
+            (true, Axis::Pan) => pin.set_high().expect("unable to set dir"),
+            (true, Axis::Tilt) => pin.set_high().expect("unable to set dir"),
+            (false, Axis::Pan) => pin.set_low().expect("unable to set dir"),
+            (false, Axis::Tilt) => pin.set_low().expect("unable to set dir"),
         };
         let steps_per_microsecond = (steps_per_second as f32) / (1_000_000.);
         let microseconds_per_step = 1. / steps_per_microsecond;
         let delay_micros = libm::floorf(microseconds_per_step / 2.) as u32;
         for _ in 0..steps {
-            pin.set_high();
-            arduino_hal::delay_us(delay_micros);
-            pin.set_low();
-            arduino_hal::delay_us(delay_micros);
+            pin.set_high().expect("set pin");
+            FreeRtos::delay_us(delay_micros);
+            pin.set_low().expect("set pin");
+            FreeRtos::delay_us(delay_micros);
         }
     }
 }
