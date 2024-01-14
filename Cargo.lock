@@ -105,7 +105,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4ec2a862134d2a7d32d7983ddcdd1c4923530833c9f2ea1a44fc5fa473989058"
 
 [[package]]
-name = "nano-turret"
+name = "gimbal-motion"
 version = "0.1.0"
 dependencies = [
  "arduino-hal",
