@@ -124,6 +124,7 @@ impl Gimbal {
         Ok(())
     }
 
+    // @todo NOT DONE
     fn home_pin(&mut self, axis: Axis, _max_steps: u32) -> anyhow::Result<()> {
         let endstop_pin = match axis {
             Axis::Pan => &mut self.pins.pan_endstop,
@@ -152,6 +153,7 @@ impl Gimbal {
 
         let mut halted = false;
         while !halted {
+            // @todo NOT DONE
             notification.wait(esp_idf_svc::hal::delay::NON_BLOCK);
             Delay::new_default().delay_ms(1);
             {
