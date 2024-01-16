@@ -35,8 +35,9 @@ mod tests {
     #[test]
     fn test_num_steps() {
         let move_instance = Move {
-            degrees: 180,
-            velocity: 100,
+            degrees: 180.,
+            velocity: 100.,
+            fwd: true,
         };
 
         let drive_teeth = 10;
