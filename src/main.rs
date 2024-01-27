@@ -1,17 +1,10 @@
 use esp_idf_svc::hal::gpio::IOPin;
 
-use {
-    gimbal_motion::gimbal_pins::GimbalBuilder,
-};
+use gimbal_motion::{cmd::Cmd, gimbal_pins::GimbalBuilder};
 
 use {
     esp_idf_svc::{
-        hal::{
-            delay::FreeRtos,
-            gpio::{OutputPin},
-            peripherals::Peripherals,
-            sys,
-        },
+        hal::{delay::FreeRtos, gpio::OutputPin, peripherals::Peripherals, sys},
         log::EspLogger,
     },
     futures::executor::block_on,
@@ -50,6 +43,8 @@ fn main() -> anyhow::Result<()> {
         .tilt_step(pins.gpio21.downgrade_output().into())
         .pan_endstop(pins.gpio25.downgrade().into())
         .tilt_endstop(pins.gpio26.downgrade().into());
+
+    let cmds: Vec<Cmd> = vec![];
 
     let mut gimbal = Gimbal::new(tpins, PAN_TEETH, DRIVE_TEETH, TILT_TEETH, DRIVE_TEETH);
 

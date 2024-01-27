@@ -38,7 +38,7 @@ pub fn start(ip_info: IpInfo) -> anyhow::Result<EspHttpServer<'static>> {
             None => (
                 400,
                 "bad param",
-                format!("{{ \"error\": \"bad gcode param\" }}"),
+                "{ \"error\": \"bad gcode param\" }".to_string(),
             ),
         };
         let mut response =
