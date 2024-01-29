@@ -11,7 +11,7 @@ use log::info;
 
 use esp_idf_svc::hal::{delay::Delay, gpio::Pull, task::notification::Notification};
 
-use crate::{gimbal_pins::GimbalPins, motor::steps_per_degree, mv::Move};
+use crate::{gcode::Gcode, gimbal_pins::GimbalPins, motor::steps_per_degree, mv::Move};
 
 #[derive(Debug, Display)]
 pub enum Axis {
@@ -23,12 +23,13 @@ pub enum Axis {
 
 pub struct Gimbal {
     pub pins: GimbalPins,
-    // (pan, tilt)
     pub pos_steps: (u32, u32),
     pan_teeth: u16,
     tilt_teeth: u16,
     pan_drive_teeth: u16,
     tilt_drive_teeth: u16,
+    pan_velocity: f32,
+    tilt_velocity: f32,
 }
 
 impl Gimbal {
@@ -38,6 +39,8 @@ impl Gimbal {
         pan_drive_teeth: u16,
         tilt_teeth: u16,
         tilt_drive_teeth: u16,
+        pan_velocity: f32,
+        tilt_velocity: f32,
     ) -> Self {
         Self {
             pins,
@@ -46,6 +49,8 @@ impl Gimbal {
             tilt_teeth,
             pan_drive_teeth,
             tilt_drive_teeth,
+            pan_velocity,
+            tilt_velocity,
         }
     }
 
@@ -57,18 +62,49 @@ impl Gimbal {
         steps_per_degree(self.tilt_drive_teeth, self.tilt_teeth)
     }
 
-    pub fn mv(&mut self, mv: Move, axis: Axis) {
-        let Move {
-            degrees,
-            fwd,
-            velocity,
-        } = mv;
-        let sign = if fwd { "+" } else { "-" };
+    pub fn fire() {
+        todo!()
+    }
+
+    pub fn process_gcode(&mut self, gcode: Gcode) -> anyhow::Result<()> {
+        match gcode {
+            Gcode::G1Move(opan, otilt) => {
+                let pan = opan.unwrap_or(0.);
+                let tilt = otilt.unwrap_or(0.);
+
+                self.moov(Move {
+                    axis: Axis::Pan,
+                    degrees: pan,
+                });
+
+                self.moov(Move {
+                    axis: Axis::Tilt,
+                    degrees: tilt,
+                });
+            }
+            Gcode::G28Home => todo!(),
+            Gcode::G90SetAbsolute => todo!(),
+            Gcode::G91SetRelative => todo!(),
+            Gcode::M1SetVelocity(_, _) => todo!(),
+        };
+
+        Ok(())
+    }
+
+    fn moov(&mut self, mv: Move) {
+        let Move { axis, degrees } = mv;
+        let is_fwd = degrees > 0.;
+        let sign = if is_fwd { "+" } else { "-" };
 
         // calculate how many steps to take
         let steps_per_degree = match &axis {
             Axis::Pan => self.steps_per_degree_pan(),
             Axis::Tilt => self.steps_per_degree_tilt(),
+        };
+
+        let velocity = match &axis {
+            Axis::Pan => self.pan_velocity,
+            Axis::Tilt => self.tilt_velocity,
         };
 
         let num_steps = floorf(degrees * steps_per_degree) as u32;
@@ -88,11 +124,9 @@ impl Gimbal {
         };
 
         // setup direction
-        match (fwd, &axis) {
-            (true, Axis::Pan) => dir_pin.high(),
-            (true, Axis::Tilt) => dir_pin.high(),
-            (false, Axis::Pan) => dir_pin.low(),
-            (false, Axis::Tilt) => dir_pin.low(),
+        match is_fwd {
+            true => dir_pin.high(),
+            false => dir_pin.low(),
         };
 
         let steps_per_microsecond = (steps_per_second as f32) / (1_000_000.);

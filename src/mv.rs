@@ -1,20 +1,14 @@
 use libm::roundf;
 
-use crate::motor::MOTOR_MICRO_STEPS_PER_REVOLUTION;
+use crate::{gimbal::Axis, motor::MOTOR_MICRO_STEPS_PER_REVOLUTION};
 
 pub struct Move {
     /**
      * Not radians. Sorry bro.
      */
     pub degrees: f32,
-    /**
-     * Direction. true = forward, false = backward
-     */
-    pub fwd: bool,
-    /**
-     * Degrees_per_second
-     */
-    pub velocity: f32,
+
+    pub axis: Axis,
 }
 
 impl Move {
@@ -36,8 +30,7 @@ mod tests {
     fn test_num_steps() {
         let move_instance = Move {
             degrees: 180.,
-            velocity: 100.,
-            fwd: true,
+            axis: Axis::Pan,
         };
 
         let drive_teeth = 10;

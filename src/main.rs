@@ -1,4 +1,6 @@
-use esp_idf_svc::hal::gpio::IOPin;
+use std::{borrow::BorrowMut, collections::VecDeque, sync::Mutex};
+
+use {esp_idf_svc::hal::gpio::IOPin, std::sync::Arc};
 
 use gimbal_motion::{cmd::Cmd, gimbal_pins::GimbalBuilder};
 
@@ -9,8 +11,7 @@ use {
     },
     futures::executor::block_on,
     gimbal_motion::{
-        gimbal::{Axis, Gimbal},
-        mv::Move,
+        gimbal::{Gimbal},
         server,
         wifi::{connect_wifi, create_wifi},
     },
@@ -44,52 +45,38 @@ fn main() -> anyhow::Result<()> {
         .pan_endstop(pins.gpio25.downgrade().into())
         .tilt_endstop(pins.gpio26.downgrade().into());
 
-    let cmds: Vec<Cmd> = vec![];
+    let cmds_arc: Arc<Mutex<VecDeque<Cmd>>> = Arc::new(Mutex::new(VecDeque::new()));
+    let cmds_reader = cmds_arc.clone();
 
-    let mut gimbal = Gimbal::new(tpins, PAN_TEETH, DRIVE_TEETH, TILT_TEETH, DRIVE_TEETH);
+    let mut gimbal = Gimbal::new(
+        tpins,
+        PAN_TEETH,
+        DRIVE_TEETH,
+        TILT_TEETH,
+        DRIVE_TEETH,
+        30.,
+        30.,
+    );
 
     // let gimbal_arc = Arc::new(Mutex::new(gimbal));
 
     let mut wifi = create_wifi(peripherals.modem)?;
     let ip_info = block_on(connect_wifi(&mut wifi, SSID, PASSWORD))?;
-    let _server = server::start(ip_info)?;
+    let _server = server::start(ip_info, cmds_arc.clone())?;
 
     loop {
-        gimbal.mv(
-            Move {
-                degrees: 20.,
-                fwd: true,
-                velocity: 360. / 20.,
-            },
-            Axis::Tilt,
-        );
-        gimbal.mv(
-            Move {
-                degrees: 20.,
-                fwd: true,
-                velocity: 360. / 20.,
-            },
-            Axis::Pan,
-        );
-        FreeRtos::delay_ms(2000);
+        let cmd_opt = { cmds_reader.lock().unwrap().borrow_mut().pop_front() };
 
-        gimbal.mv(
-            Move {
-                degrees: 20.,
-                fwd: false,
-                velocity: 360. / 20.,
-            },
-            Axis::Tilt,
-        );
-        gimbal.mv(
-            Move {
-                degrees: 20.,
-                fwd: false,
-                velocity: 360. / 20.,
-            },
-            Axis::Pan,
-        );
+        if let Some(cmd) = cmd_opt {
+            match cmd {
+                Cmd::ClearCmdQueue => {
+                    let mut cmds = cmds_reader.lock().unwrap();
+                    cmds.clear();
+                }
+                Cmd::ProcessGcode(mv) => gimbal.process_gcode(mv).expect("gcode proc failed"),
+            }
+        }
 
-        FreeRtos::delay_ms(1000);
+        FreeRtos::delay_ms(100);
     }
 }

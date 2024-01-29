@@ -1,11 +1,20 @@
+use std::{collections::VecDeque, sync::Mutex};
+
+use std::sync::Arc;
+
 use embedded_svc::{http::Headers, ipv4::IpInfo};
+
+use crate::{cmd::Cmd, gcode::GcodeParser};
 
 use {
     esp_idf_svc::http::{server::EspHttpServer, Method},
     log::info,
 };
 
-pub fn start(ip_info: IpInfo) -> anyhow::Result<EspHttpServer<'static>> {
+pub fn start(
+    ip_info: IpInfo,
+    _state: Arc<Mutex<VecDeque<Cmd>>>,
+) -> anyhow::Result<EspHttpServer<'static>> {
     let ip = ip_info.ip;
     let location = std::format!("https://cdaringe.github.io/gimbal-motion?ip={ip}");
 
@@ -26,19 +35,21 @@ pub fn start(ip_info: IpInfo) -> anyhow::Result<EspHttpServer<'static>> {
 
     server.fn_handler("/api/gcode", Method::Get, move |req| {
         let conn = req.connection().unwrap_or("unknown");
-        let gcode = url::Url::parse(req.uri())?
+        let gcode_str = url::Url::parse(req.uri())?
             .query_pairs()
             .find(|(k, _)| k == "gcode")
-            .map(|(_, gcode)| gcode.to_string());
-        let (code, message, payload) = match gcode {
-            Some(g) => {
+            .map(|(_, v)| v.to_string())
+            .unwrap_or("".to_string());
+
+        let (code, message, payload) = match GcodeParser::of_str(&gcode_str) {
+            Ok(_g) => {
                 info!("handling req from connection: {conn}");
-                (200, "ok", format!("{{ \"ok\": \"{g}\" }}"))
+                (200, "ok", "{ \"ok\": true }".to_string())
             }
-            None => (
+            Err(err) => (
                 400,
                 "bad param",
-                "{ \"error\": \"bad gcode param\" }".to_string(),
+                format!("{{ \"error\": \"{err}\" }}").to_string(),
             ),
         };
         let mut response =

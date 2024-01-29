@@ -1,4 +1,5 @@
 pub mod cmd;
+pub mod gcode;
 pub mod gimbal;
 pub mod gimbal_pins;
 pub mod motor;

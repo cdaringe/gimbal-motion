@@ -1,8 +1,6 @@
-use crate::mv::Move;
+use crate::gcode::Gcode;
 
 pub enum Cmd {
     ClearCmdQueue,
-    Mv(Move),
-    Halt,
-    Fire,
+    ProcessGcode(Gcode),
 }
