@@ -36,9 +36,7 @@ fn main() -> anyhow::Result<()> {
     let peripherals = Peripherals::take()?;
     let pins = peripherals.pins;
 
-    // let mut z = PinDriver::input(peripherals.pins.gpio9).unwrap();
-    // z.set_pull(Pull::Up);
-    let tpins = GimbalBuilder::pan_dir(pins.gpio14.downgrade_output().into())
+    let gimbal_pins = GimbalBuilder::pan_dir(pins.gpio14.downgrade_output().into())
         .pan_step(pins.gpio15.downgrade_output().into())
         .tilt_dir(pins.gpio22.downgrade_output().into())
         .tilt_step(pins.gpio21.downgrade_output().into())
@@ -49,7 +47,7 @@ fn main() -> anyhow::Result<()> {
     let cmds_reader = cmds_arc.clone();
 
     let mut gimbal = Gimbal::new(
-        tpins,
+        gimbal_pins,
         PAN_TEETH,
         DRIVE_TEETH,
         TILT_TEETH,
@@ -57,8 +55,6 @@ fn main() -> anyhow::Result<()> {
         30.,
         30.,
     );
-
-    // let gimbal_arc = Arc::new(Mutex::new(gimbal));
 
     let mut wifi = create_wifi(peripherals.modem)?;
     let ip_info = block_on(connect_wifi(&mut wifi, SSID, PASSWORD))?;
