@@ -3,17 +3,21 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use libm::floorf;
+use {anyhow::anyhow, libm::floorf};
 
 use derive_more::Display;
 
 use log::info;
 
-use esp_idf_svc::hal::{delay::Delay, gpio::Pull, task::notification::Notification};
+use esp_idf_svc::hal::{
+    delay::Delay,
+    gpio::{Level, Pull},
+    task::notification::Notification,
+};
 
 use crate::{gcode::Gcode, gimbal_pins::GimbalPins, motor::steps_per_degree, mv::Move};
 
-#[derive(Debug, Display)]
+#[derive(Copy, Clone, Debug, Display)]
 pub enum Axis {
     #[display(fmt = "Pan")]
     Pan,
@@ -34,7 +38,7 @@ pub struct Gimbal {
 
 impl Gimbal {
     pub fn new(
-        pins: GimbalPins,
+        mut pins: GimbalPins,
         pan_teeth: u16,
         pan_drive_teeth: u16,
         tilt_teeth: u16,
@@ -42,6 +46,14 @@ impl Gimbal {
         pan_velocity: f32,
         tilt_velocity: f32,
     ) -> Self {
+        pins.pan_endstop
+            .pd
+            .set_pull(Pull::Up)
+            .expect("pullup failed");
+        pins.tilt_endstop
+            .pd
+            .set_pull(Pull::Up)
+            .expect("pullup failed");
         Self {
             pins,
             pos_steps: (0, 0),
@@ -82,13 +94,106 @@ impl Gimbal {
                     degrees: tilt,
                 });
             }
-            Gcode::G28Home => todo!(),
+            Gcode::G28Home => {
+                self.home_axis(&Axis::Pan).expect("home pan failed");
+                self.home_axis(&Axis::Tilt).expect("home tilt failed");
+            }
             Gcode::G90SetAbsolute => todo!(),
             Gcode::G91SetRelative => todo!(),
-            Gcode::M1SetVelocity(_, _) => todo!(),
+            Gcode::M1SetVelocity(opan, otilt) => {
+                let pan = opan.unwrap_or(self.pan_velocity);
+                let tilt = otilt.unwrap_or(self.tilt_velocity);
+                self.pan_velocity = pan;
+                self.tilt_velocity = tilt;
+            }
         };
 
         Ok(())
+    }
+
+    fn is_home(&self, axis: &Axis) -> bool {
+        match axis {
+            Axis::Pan => self.is_pan_home(),
+            Axis::Tilt => self.is_tilt_home(),
+        }
+    }
+
+    fn home_axis(&mut self, axis: &Axis) -> anyhow::Result<()> {
+        let mut iter_deg = 1.;
+        let mut max_iter = (360. / iter_deg) as u32;
+
+        if self.is_home(axis) {
+            return Ok(());
+        }
+
+        // coarse
+        for _ in 1..=max_iter {
+            self.moov(Move {
+                axis: *axis,
+                degrees: -iter_deg,
+            });
+            if self.is_home(axis) {
+                break;
+            }
+        }
+
+        if !self.is_home(axis) {
+            return Err(anyhow!("failed to home {axis} (coarse pass)"));
+        }
+
+        // backoff to prep for fine approach
+        let backoff_deg = 4.;
+        self.moov(Move {
+            axis: *axis,
+            degrees: backoff_deg * iter_deg,
+        });
+
+        // refine back in incr
+        let finer_by = 5.;
+        iter_deg /= finer_by;
+        max_iter = ((backoff_deg * finer_by) * 1.1).floor() as u32;
+
+        // fine
+        let last_v = match axis {
+            Axis::Pan => self.pan_velocity,
+            Axis::Tilt => self.tilt_velocity,
+        };
+
+        // slow us down mate
+        match axis {
+            Axis::Pan => self.pan_velocity /= 5.,
+            Axis::Tilt => self.tilt_velocity /= 5.,
+        };
+
+        for _ in 1..=max_iter {
+            self.moov(Move {
+                axis: *axis,
+                degrees: -iter_deg,
+            });
+            if self.is_home(axis) {
+                break;
+            }
+        }
+
+        if !self.is_home(axis) {
+            return Err(anyhow!("failed to home {axis} (fine pass)"));
+        }
+
+        // ...annnnnnnnd speed us back up
+        match axis {
+            Axis::Pan => self.pan_velocity = last_v,
+            Axis::Tilt => self.tilt_velocity = last_v,
+        };
+
+        Ok(())
+    }
+
+    fn is_pan_home(&self) -> bool {
+        self.pins.pan_endstop.pd.get_level() == Level::Low
+    }
+
+    fn is_tilt_home(&self) -> bool {
+        self.pins.pan_endstop.pd.get_level() == Level::Low
     }
 
     fn moov(&mut self, mv: Move) {

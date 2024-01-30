@@ -11,7 +11,7 @@ use {
     },
     futures::executor::block_on,
     gimbal_motion::{
-        gimbal::{Gimbal},
+        gimbal::Gimbal,
         server,
         wifi::{connect_wifi, create_wifi},
     },
