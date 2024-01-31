@@ -16,7 +16,8 @@ pub fn start(
     _state: Arc<Mutex<VecDeque<Cmd>>>,
 ) -> anyhow::Result<EspHttpServer<'static>> {
     let ip = ip_info.ip;
-    let location = std::format!("https://cdaringe.github.io/gimbal-motion?ip={ip}");
+    info!("starting server at {ip}");
+    let location = std::format!("https://cdaringe.github.io/gimbal-gui?ip={ip}");
 
     let server_configuration = esp_idf_svc::http::server::Configuration {
         stack_size: 10240,
