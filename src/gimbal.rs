@@ -1,6 +1,9 @@
-use std::{
-    num::NonZeroU32,
-    sync::{Arc, Mutex},
+use {
+    serde::Serialize,
+    std::{
+        num::NonZeroU32,
+        sync::{Arc, Mutex},
+    },
 };
 
 use {anyhow::anyhow, libm::floorf};
@@ -25,7 +28,9 @@ pub enum Axis {
     Tilt,
 }
 
+#[derive(Serialize)]
 pub struct Gimbal {
+    #[serde(skip)]
     pub pins: GimbalPins,
     pub pos_steps: (u32, u32),
     pan_teeth: u16,

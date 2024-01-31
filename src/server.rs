@@ -1,10 +1,13 @@
-use std::{collections::VecDeque, sync::Mutex};
+use std::{
+    collections::VecDeque,
+    sync::{Arc, Mutex},
+};
 
-use std::sync::Arc;
+use serde_json;
 
-use embedded_svc::{http::Headers, ipv4::IpInfo};
+use embedded_svc::{http::Headers, io::Write, ipv4::IpInfo};
 
-use crate::{cmd::Cmd, gcode::GcodeParser};
+use crate::{cmd::Cmd, gcode::GcodeParser, gimbal::Gimbal};
 
 use {
     esp_idf_svc::http::{server::EspHttpServer, Method},
@@ -14,10 +17,11 @@ use {
 pub fn start(
     ip_info: IpInfo,
     _state: Arc<Mutex<VecDeque<Cmd>>>,
+    gimbal_arc: Arc<Mutex<Gimbal>>,
 ) -> anyhow::Result<EspHttpServer<'static>> {
     let ip = ip_info.ip;
     info!("starting server at {ip}");
-    let location = std::format!("https://cdaringe.github.io/gimbal-gui?ip={ip}");
+    let location = std::format!("https://cdaringe.github.io/gimbal-gui?gimbal_url={ip}");
 
     let server_configuration = esp_idf_svc::http::server::Configuration {
         stack_size: 10240,
@@ -30,6 +34,17 @@ pub fn start(
         let conn = req.connection().unwrap_or("unknown");
         info!("handling req from connection: {conn}");
         let mut response = req.into_response(301, None, &[("Location", &location)])?;
+        response.flush()?;
+        Ok(())
+    })?;
+
+    server.fn_handler("/api/state", Method::Get, move |req| {
+        let mut response = req.into_ok_response()?;
+        let gimbal_json = {
+            let g = gimbal_arc.lock().unwrap();
+            serde_json::to_string(&*g).unwrap()
+        };
+        write!(response, "{}", gimbal_json)?;
         response.flush()?;
         Ok(())
     })?;
