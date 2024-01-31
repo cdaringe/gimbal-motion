@@ -39,7 +39,14 @@ pub fn start(
     })?;
 
     server.fn_handler("/api/state", Method::Get, move |req| {
-        let mut response = req.into_ok_response()?;
+        let mut response = req.into_response(
+            200,
+            Some("Ok"),
+            &[
+                ("Access-Control-Allow-Origin", "*"),
+                ("content-type", "application/json"),
+            ],
+        )?;
         let gimbal_json = {
             let g = gimbal_arc.lock().unwrap();
             serde_json::to_string(&*g).unwrap()
@@ -68,8 +75,14 @@ pub fn start(
                 format!("{{ \"error\": \"{err}\" }}").to_string(),
             ),
         };
-        let mut response =
-            req.into_response(code, Some(message), &[("content-type", "application/json")])?;
+        let mut response = req.into_response(
+            code,
+            Some(message),
+            &[
+                ("Access-Control-Allow-Origin", "*"),
+                ("content-type", "application/json"),
+            ],
+        )?;
         response.write(payload.as_bytes())?;
         response.flush()?;
         Ok(())
