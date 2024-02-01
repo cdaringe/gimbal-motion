@@ -1,18 +1,19 @@
-use std::{
-    collections::VecDeque,
-    sync::{Arc, Mutex},
-};
-
-use serde_json;
-
-use embedded_svc::{http::Headers, io::Write, ipv4::IpInfo};
-
-use crate::{cmd::Cmd, gcode::GcodeParser, gimbal::Gimbal};
-
 use {
+    crate::{cmd::Cmd, gcode::GcodeParser, gimbal::Gimbal, server_response::Response},
+    embedded_svc::{http::Headers, io::Write, ipv4::IpInfo},
     esp_idf_svc::http::{server::EspHttpServer, Method},
     log::info,
+    serde_json,
+    std::{
+        collections::VecDeque,
+        sync::{Arc, Mutex},
+    },
 };
+
+#[derive(serde::Deserialize)]
+struct PostGcode {
+    pub gcode: String,
+}
 
 pub fn start(
     ip_info: IpInfo,
@@ -49,31 +50,24 @@ pub fn start(
         )?;
         let gimbal_json = {
             let g = gimbal_arc.lock().unwrap();
-            serde_json::to_string(&*g).unwrap()
+            serde_json::to_string(&*g)?
         };
-        write!(response, "{}", gimbal_json)?;
+        write!(response, "{}", &Response::ok(gimbal_json).json()?)?;
         response.flush()?;
         Ok(())
     })?;
 
-    server.fn_handler("/api/gcode", Method::Get, move |req| {
+    server.fn_handler("/api/gcode", Method::Post, move |mut req| {
+        let mut buf = [0; 256];
+        req.read(&mut buf)?;
         let conn = req.connection().unwrap_or("unknown");
-        let gcode_str = url::Url::parse(req.uri())?
-            .query_pairs()
-            .find(|(k, _)| k == "gcode")
-            .map(|(_, v)| v.to_string())
-            .unwrap_or("".to_string());
-
-        let (code, message, payload) = match GcodeParser::of_str(&gcode_str) {
+        let body: PostGcode = serde_json::from_slice(&buf)?;
+        let (code, message, payload) = match GcodeParser::of_str(&body.gcode) {
             Ok(_g) => {
                 info!("handling req from connection: {conn}");
-                (200, "ok", "{ \"ok\": true }".to_string())
+                (200, "ok", Response::ok(true).json()?)
             }
-            Err(err) => (
-                400,
-                "bad param",
-                format!("{{ \"error\": \"{err}\" }}").to_string(),
-            ),
+            Err(err) => (400, "bad param", Response::error(err.to_string()).json()?),
         };
         let mut response = req.into_response(
             code,
