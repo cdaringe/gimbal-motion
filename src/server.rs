@@ -48,11 +48,7 @@ pub fn start(
                 ("content-type", "application/json"),
             ],
         )?;
-        let gimbal_json = {
-            let g = gimbal_arc.lock().unwrap();
-            serde_json::to_string(&*g)?
-        };
-        write!(response, "{}", &Response::ok(gimbal_json).json()?)?;
+        write!(response, "{}", &Response::ok(&*gimbal_arc.lock()?).json()?)?;
         response.flush()?;
         Ok(())
     })?;
