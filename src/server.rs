@@ -54,19 +54,17 @@ pub fn start(
     })?;
 
     server.fn_handler("/api/gcode", Method::Post, move |mut req| {
-        let mut buf = [0; 256];
-        req.read(&mut buf)?;
-        let conn = req.connection().unwrap_or("unknown");
-        let json_str_raw = String::from_utf8(buf.to_vec())?;
-        let json_str = json_str_raw.trim();
+        let json_str = {
+            let mut buf = [0; 256];
+            req.read(&mut buf)?;
+            let json_str_raw = String::from_utf8(buf.to_vec())?;
+            json_str_raw.trim().to_owned()
+        };
         info!("buf: {}", &json_str);
-        let body: PostGcode = serde_json::from_value(serde_json::to_value(json_str)?)?;
+        let body: PostGcode = serde_json::de::from_str(&json_str)?; // serde_json::from_str(json_str)?;
         info!("postgcode: {}", serde_json::to_string(&body)?);
         let (code, message, payload) = match GcodeParser::of_str(&body.gcode) {
-            Ok(_g) => {
-                info!("handling req from connection: {conn}");
-                (200, "ok", Response::ok(true).json()?)
-            }
+            Ok(_g) => (200, "ok", Response::ok(true).json()?),
             Err(err) => (400, "bad param", Response::error(err.to_string()).json()?),
         };
         let mut response = req.into_response(
