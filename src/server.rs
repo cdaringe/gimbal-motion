@@ -10,7 +10,7 @@ use {
     },
 };
 
-#[derive(serde::Deserialize)]
+#[derive(serde::Deserialize, serde::Serialize)]
 struct PostGcode {
     pub gcode: String,
 }
@@ -59,6 +59,7 @@ pub fn start(
         let conn = req.connection().unwrap_or("unknown");
         info!("buf: {}", &String::from_utf8(buf.to_vec())?);
         let body: PostGcode = serde_json::from_slice(&buf)?;
+        info!("postgcode: {}", serde_json::to_string(&body)?);
         let (code, message, payload) = match GcodeParser::of_str(&body.gcode) {
             Ok(_g) => {
                 info!("handling req from connection: {conn}");
@@ -74,6 +75,7 @@ pub fn start(
                 ("content-type", "application/json"),
             ],
         )?;
+        info!("pre write");
         response.write(payload.as_bytes())?;
         response.flush()?;
         Ok(())
