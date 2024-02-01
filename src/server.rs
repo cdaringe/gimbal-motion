@@ -58,7 +58,7 @@ pub fn start(
         req.read(&mut buf)?;
         let conn = req.connection().unwrap_or("unknown");
         info!("buf: {}", &String::from_utf8(buf.to_vec())?);
-        let body: PostGcode = serde_json::from_slice(&buf)?;
+        let body: PostGcode = serde_json::from_str(&String::from_utf8(buf.to_vec())?)?;
         info!("postgcode: {}", serde_json::to_string(&body)?);
         let (code, message, payload) = match GcodeParser::of_str(&body.gcode) {
             Ok(_g) => {
