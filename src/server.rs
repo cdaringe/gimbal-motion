@@ -60,7 +60,7 @@ pub fn start(
         let json_str_raw = String::from_utf8(buf.to_vec())?;
         let json_str = json_str_raw.trim();
         info!("buf: {}", &json_str);
-        let body: PostGcode = serde_json::from_str(json_str)?;
+        let body: PostGcode = serde_json::to_value(json_str)?;
         info!("postgcode: {}", serde_json::to_string(&body)?);
         let (code, message, payload) = match GcodeParser::of_str(&body.gcode) {
             Ok(_g) => {
