@@ -17,7 +17,7 @@ struct PostGcode {
 
 pub fn start(
     ip_info: IpInfo,
-    _state: Arc<Mutex<VecDeque<Cmd>>>,
+    state: Arc<Mutex<VecDeque<Cmd>>>,
     gimbal_arc: Arc<Mutex<Gimbal>>,
 ) -> anyhow::Result<EspHttpServer<'static>> {
     let ip = ip_info.ip;
@@ -70,7 +70,10 @@ pub fn start(
         let body: PostGcode = serde_json::from_str(&json_str)?;
 
         let (code, message, payload) = match GcodeParser::of_str(&body.gcode) {
-            Ok(_g) => (200, "ok", Response::ok(true).json()?),
+            Ok(gcode) => {
+                state.lock()?.push_back(Cmd::ProcessGcode(gcode));
+                (200, "ok", Response::ok(true).json()?)
+            }
             Err(err) => (400, "bad input", Response::error(err.to_string()).json()?),
         };
         let mut response = req.into_response(
