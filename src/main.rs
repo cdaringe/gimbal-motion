@@ -75,10 +75,13 @@ fn main() -> anyhow::Result<()> {
                 }
                 Cmd::ProcessGcode(mv) => {
                     let mut gimbal = gimbal_arc.lock().unwrap();
-                    match gimbal.process_gcode(mv) {
-                        Ok(_) => {}
-                        Err(e) => {
-                            log::error!("failed to process gcode: {e}");
+                    if gimbal.last_error_message.is_none() {
+                        match gimbal.process_gcode(mv) {
+                            Ok(_) => {}
+                            Err(e) => {
+                                gimbal.last_error_message = Some(e.to_string());
+                                log::error!("failed to process gcode: {e}. restart required");
+                            }
                         }
                     }
                 }

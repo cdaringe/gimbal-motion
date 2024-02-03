@@ -41,6 +41,7 @@ pub struct Gimbal {
     tilt_velocity: f32,
     is_home_referenced: bool,
     is_homing: bool,
+    pub last_error_message: Option<String>,
 }
 
 impl Gimbal {
@@ -72,6 +73,7 @@ impl Gimbal {
             tilt_velocity,
             is_homing: false,
             is_home_referenced: false,
+            last_error_message: None,
         }
     }
 
