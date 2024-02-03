@@ -61,9 +61,11 @@ pub fn start(
             json_str_raw.trim().to_owned()
         };
         info!("buf: {}", &json_str);
-        info!("ckc: {}", ".".repeat(json_str.len()));
+        info!("ckc: {}, {}", ".".repeat(json_str.len()), json_str.len());
+
         let body: PostGcode = serde_json::de::from_str(&json_str)?; // serde_json::from_str(json_str)?;
         info!("postgcode: {}", serde_json::to_string(&body)?);
+
         let (code, message, payload) = match GcodeParser::of_str(&body.gcode) {
             Ok(_g) => (200, "ok", Response::ok(true).json()?),
             Err(err) => (400, "bad param", Response::error(err.to_string()).json()?),
