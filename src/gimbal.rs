@@ -72,7 +72,8 @@ impl Gimbal {
             pan_velocity,
             tilt_velocity,
             is_homing: false,
-            is_home_referenced: false,
+            // @todo NO NO NO NO
+            is_home_referenced: true,
             last_error_message: None,
         }
     }
