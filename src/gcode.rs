@@ -1,3 +1,5 @@
+use log::info;
+
 #[derive(Debug, PartialEq)]
 pub enum Gcode {
     // G1 P100 T200
@@ -38,6 +40,7 @@ impl GcodeParser {
             let mut chars = part.chars();
             let start_char = chars.next();
             let num = chars.as_str().parse::<f32>();
+            info!("start_char: {:?}, num: {:?}", start_char, num);
             match (start_char, num) {
                 (Some('G') | Some('M'), Ok(num)) => {
                     acc.push((start_char, num));

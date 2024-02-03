@@ -66,7 +66,7 @@ pub fn start(
 
         let (code, message, payload) = match GcodeParser::of_str(&body.gcode) {
             Ok(_g) => (200, "ok", Response::ok(true).json()?),
-            Err(err) => (400, "bad param", Response::error(err.to_string()).json()?),
+            Err(err) => (400, "bad input", Response::error(err.to_string()).json()?),
         };
         let mut response = req.into_response(
             code,
@@ -76,7 +76,6 @@ pub fn start(
                 ("content-type", "application/json"),
             ],
         )?;
-        info!("pre write");
         response.write(payload.as_bytes())?;
         response.flush()?;
         Ok(())
