@@ -75,7 +75,12 @@ fn main() -> anyhow::Result<()> {
                 }
                 Cmd::ProcessGcode(mv) => {
                     let mut gimbal = gimbal_arc.lock().unwrap();
-                    gimbal.process_gcode(mv).expect("gcode proc failed")
+                    match gimbal.process_gcode(mv) {
+                        Ok(_) => {}
+                        Err(e) => {
+                            log::error!("failed to process gcode: {e}");
+                        }
+                    }
                 }
             }
         }

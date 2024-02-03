@@ -39,6 +39,8 @@ pub struct Gimbal {
     tilt_drive_teeth: u16,
     pan_velocity: f32,
     tilt_velocity: f32,
+    is_home_referenced: bool,
+    is_homing: bool,
 }
 
 impl Gimbal {
@@ -68,6 +70,8 @@ impl Gimbal {
             tilt_drive_teeth,
             pan_velocity,
             tilt_velocity,
+            is_homing: false,
+            is_home_referenced: false,
         }
     }
 
@@ -86,6 +90,9 @@ impl Gimbal {
     pub fn process_gcode(&mut self, gcode: Gcode) -> anyhow::Result<()> {
         match gcode {
             Gcode::G1Move(opan, otilt) => {
+                if !self.is_home_referenced && !self.is_homing {
+                    return Err(anyhow!("gimbal not homed"));
+                }
                 let pan = opan.unwrap_or(0.);
                 let tilt = otilt.unwrap_or(0.);
 
