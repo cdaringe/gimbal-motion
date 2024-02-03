@@ -94,6 +94,7 @@ impl Gimbal {
     }
 
     pub fn process_gcode(&mut self, gcode: Gcode) -> anyhow::Result<()> {
+        info!("processing gcode [START]: {gcode:?}");
         match gcode {
             Gcode::G1Move(opan, otilt) => {
                 if !self.is_home_referenced && !self.is_homing {
@@ -117,7 +118,7 @@ impl Gimbal {
                 let res = self.try_home();
                 self.is_homing = false;
                 self.is_home_referenced = res.is_ok();
-                return res;
+                res?;
             }
             Gcode::G90SetAbsolute => todo!(),
             Gcode::G91SetRelative => todo!(),

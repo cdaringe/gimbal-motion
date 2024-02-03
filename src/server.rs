@@ -53,6 +53,11 @@ pub fn start(
         Ok(())
     })?;
 
+    server.fn_handler("/api/restart", Method::Get, move |_req| {
+        esp_idf_svc::hal::reset::restart();
+        Ok(())
+    })?;
+
     server.fn_handler("/api/gcode", Method::Post, move |mut req| {
         let json_str = {
             let mut buf = [0; 256];
