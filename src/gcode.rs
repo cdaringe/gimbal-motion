@@ -1,5 +1,3 @@
-use log::info;
-
 #[derive(Debug, PartialEq)]
 pub enum Gcode {
     // G1 P100 T200
@@ -40,20 +38,19 @@ impl GcodeParser {
             let mut chars = part.chars();
             let start_char = chars.next();
             let num = chars.as_str().parse::<f32>();
-            info!("start_char: {:?}, num: {:?}", start_char, num);
             match (start_char, num) {
                 (Some('G') | Some('M') | Some('T') | Some('P'), Ok(num)) => {
                     acc.push((start_char, num));
                     Ok(acc)
                 }
-                (Some(_), _) => Err(format!("invalid gcode: {}", str)),
+                (Some(_), _) => Err(invalid_gcode(str)),
                 (None, _) => part
                     .parse::<f32>()
                     .map(|num| {
                         acc.push((None, num));
                         acc
                     })
-                    .map_err(|_| format!("invalid gcode: {}", str)),
+                    .map_err(|_| invalid_gcode(str)),
             }
         })?;
         parts.reverse();

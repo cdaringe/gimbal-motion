@@ -81,5 +81,18 @@ pub fn start(
         Ok(())
     })?;
 
+    // server.ws_handler("/ws", move |ws| {
+    //     let conn = ws.connection().unwrap_or("unknown");
+    //     info!("handling ws req from connection: {conn}");
+    //     let gimbal_arc = gimbal_arc.clone();
+    //     ws.on_message(move |msg| {
+    //         let msg = msg?;
+    //         let cmd: Cmd = serde_json::from_str(&msg)?;
+    //         let mut gimbal = gimbal_arc.lock()?;
+    //         gimbal.queue.push_back(cmd);
+    //         Ok(())
+    //     })?;
+    // })?;
+
     Ok(server)
 }
