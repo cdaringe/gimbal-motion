@@ -58,10 +58,12 @@ pub fn start(
             let mut buf = [0; 256];
             req.read(&mut buf)?;
             let json_str_raw = String::from_utf8_lossy(&buf);
-            json_str_raw.trim().to_owned()
+            json_str_raw
         };
+
         info!("buf: {}", &json_str);
-        info!("ckc: {}, {}", ".".repeat(json_str.len()), json_str.len());
+        let x: Vec<u8> = json_str.chars().map(|c| c as u8).collect();
+        info!("ckc: {:?}, {}", x, json_str.len());
 
         let body: PostGcode = serde_json::de::from_str(&json_str)?; // serde_json::from_str(json_str)?;
         info!("postgcode: {}", serde_json::to_string(&body)?);
