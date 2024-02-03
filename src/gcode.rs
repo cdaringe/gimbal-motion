@@ -42,7 +42,7 @@ impl GcodeParser {
             let num = chars.as_str().parse::<f32>();
             info!("start_char: {:?}, num: {:?}", start_char, num);
             match (start_char, num) {
-                (Some('G') | Some('M'), Ok(num)) => {
+                (Some('G') | Some('M') | Some('T') | Some('P'), Ok(num)) => {
                     acc.push((start_char, num));
                     Ok(acc)
                 }
