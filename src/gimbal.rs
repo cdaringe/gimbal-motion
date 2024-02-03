@@ -87,6 +87,12 @@ impl Gimbal {
         todo!()
     }
 
+    fn try_home(&mut self) -> anyhow::Result<()> {
+        self.home_axis(&Axis::Pan)?;
+        self.home_axis(&Axis::Tilt)?;
+        Ok(())
+    }
+
     pub fn process_gcode(&mut self, gcode: Gcode) -> anyhow::Result<()> {
         match gcode {
             Gcode::G1Move(opan, otilt) => {
@@ -107,8 +113,11 @@ impl Gimbal {
                 });
             }
             Gcode::G28Home => {
-                self.home_axis(&Axis::Pan).expect("home pan failed");
-                self.home_axis(&Axis::Tilt).expect("home tilt failed");
+                self.is_homing = true;
+                let res = self.try_home();
+                self.is_homing = false;
+                self.is_home_referenced = res.is_ok();
+                return res;
             }
             Gcode::G90SetAbsolute => todo!(),
             Gcode::G91SetRelative => todo!(),
