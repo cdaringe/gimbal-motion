@@ -58,7 +58,7 @@ pub fn start(
             let mut buf = [0; 256];
             req.read(&mut buf)?;
             let json_str_raw = String::from_utf8_lossy(&buf);
-            json_str_raw
+            json_str_raw.trim().to_string()
         };
 
         info!("buf: {}", &json_str);
