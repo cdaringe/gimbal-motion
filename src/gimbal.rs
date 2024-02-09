@@ -236,7 +236,7 @@ impl Gimbal {
             Axis::Tilt => self.tilt_velocity,
         };
 
-        let num_steps = floorf(degrees * steps_per_degree) as u32;
+        let num_steps = floorf(degrees.abs() * steps_per_degree) as u32;
 
         let steps_per_second = floorf(
             /* deg / s */ velocity * /* step / deg */ steps_per_degree,
