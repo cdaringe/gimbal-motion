@@ -224,7 +224,6 @@ impl Gimbal {
     fn moov(&mut self, mv: Move) {
         let Move { axis, degrees } = mv;
         let is_fwd = degrees > 0.;
-        let sign = if is_fwd { "+" } else { "-" };
 
         // calculate how many steps to take
         let steps_per_degree = match &axis {
@@ -265,7 +264,7 @@ impl Gimbal {
 
         let seconds_to_move = (num_steps as f32) / steps_per_second as f32;
 
-        info!("move // axis: {axis}, degrees: {sign}{degrees}, steps: {sign}{num_steps}, delay_micros: {delay_micros}, seconds_to_move: {seconds_to_move:.2}");
+        info!("move // axis: {axis}, degrees: {degrees}, steps: {num_steps}, delay_micros: {delay_micros}, seconds_to_move: {seconds_to_move:.2}");
 
         for _i in 0..num_steps {
             step_pin.high();
