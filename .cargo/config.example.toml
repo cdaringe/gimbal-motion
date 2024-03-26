@@ -1,3 +1,4 @@
+# mv .cargo/config.example.toml. .cargo/config.toml
 [build]
 target = "xtensa-esp32-espidf"
 

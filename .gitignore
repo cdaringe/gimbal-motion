@@ -3,3 +3,4 @@
 /.embuild
 /target
 
+.cargo/config.toml
