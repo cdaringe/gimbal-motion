@@ -6,4 +6,5 @@ pub mod motor;
 pub mod mv;
 pub mod server;
 pub mod server_response;
+pub mod uart_writer;
 pub mod wifi;

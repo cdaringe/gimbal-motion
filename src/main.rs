@@ -1,24 +1,27 @@
-use std::{
-    borrow::BorrowMut,
-    collections::VecDeque,
-    sync::{Arc, Mutex},
-};
-
-use esp_idf_svc::hal::gpio::IOPin;
-
-use gimbal_motion::{cmd::Cmd, gimbal_pins::GimbalBuilder};
-
 use {
     esp_idf_svc::{
-        hal::{delay::FreeRtos, gpio::OutputPin, peripherals::Peripherals, sys},
+        hal::{
+            delay::FreeRtos,
+            gpio::{AnyIOPin, IOPin, OutputPin},
+            peripherals::Peripherals,
+            sys, uart,
+        },
         log::EspLogger,
     },
     futures::executor::block_on,
-    gimbal_motion::{
-        gimbal::Gimbal,
-        server,
-        wifi::{connect_wifi, create_wifi},
+    std::{
+        borrow::BorrowMut,
+        collections::VecDeque,
+        sync::{Arc, Mutex},
     },
+};
+
+use gimbal_motion::{cmd::Cmd, gimbal_pins::GimbalBuilder, uart_writer::UartWriter};
+
+use gimbal_motion::{
+    gimbal::Gimbal,
+    server,
+    wifi::{connect_wifi, create_wifi},
 };
 
 const SSID: &str = env!("WIFI_SSID");
@@ -31,6 +34,11 @@ const DRIVE_TEETH: u16 = 16;
 const TILT_TEETH: u16 = 160;
 const PAN_TEETH: u16 = 128;
 
+pub struct TmcRegisters {
+    gconf: tmc2209::reg::GCONF,
+    vactual: tmc2209::reg::VACTUAL,
+}
+
 fn main() -> anyhow::Result<()> {
     // It is necessary to call this function once. Otherwise some patches to the runtime
     // implemented by esp-idf-sys might not link properly. See https://github.com/esp-rs/esp-idf-template/issues/71
@@ -39,6 +47,64 @@ fn main() -> anyhow::Result<()> {
 
     let peripherals = Peripherals::take()?;
     let pins = peripherals.pins;
+
+    // let motor_conf_coolconf = tmc2209::reg::COOLCONF::default();
+    let mut motor_conf_gconf = tmc2209::reg::GCONF::default();
+    motor_conf_gconf.set_shaft(true); // spin motor.
+    motor_conf_gconf.set_pdn_disable(true);
+    let vactual = tmc2209::reg::VACTUAL::default();
+
+    let motor_driver = Arc::new(Mutex::new(
+        uart::UartDriver::new(
+            peripherals.uart2,
+            pins.gpio17,
+            pins.gpio16,
+            AnyIOPin::none(),
+            AnyIOPin::none(),
+            &uart::config::Config::new().baudrate(115200.into()),
+        )
+        .unwrap(),
+    ));
+    let mut xxx = Arc::clone(&motor_driver);
+    let mut bullshit = xxx.lock().unwrap();
+    let (mtx, mrx) = bullshit.borrow_mut().split();
+    let _ = {
+        let mrx_reader = std::thread::spawn(move || {
+            let mut tmc_reader = tmc2209::Reader::default();
+            let mut buf = [0u8; 256];
+            while let Ok(b) = mrx.read(&mut buf, 10000) {
+                if let (_, Some(response)) = tmc_reader.read_response(&[b.try_into().unwrap()]) {
+                    match response.crc_is_valid() {
+                        true => log::info!("Received valid response!"),
+                        false => {
+                            log::error!("Received invalid response!");
+                            continue;
+                        }
+                    }
+                    match response.reg_addr() {
+                        Ok(tmc2209::reg::Address::IOIN) => {
+                            let reg = response.register::<tmc2209::reg::IOIN>().unwrap();
+                            log::info!("{:?}", reg);
+                        }
+                        Ok(tmc2209::reg::Address::IFCNT) => {
+                            let reg = response.register::<tmc2209::reg::IFCNT>().unwrap();
+                            log::info!("{:?}", reg);
+                        }
+                        addr => log::warn!("Unexpected register address: {:?}", addr),
+                    }
+                }
+            }
+        });
+
+        let mtx_writer = std::thread::spawn(move || {
+            let mut wmtx = UartWriter::new(mtx);
+            tmc2209::send_write_request(0, motor_conf_gconf, &mut wmtx).unwrap();
+            tmc2209::send_write_request(0, vactual, &mut wmtx).unwrap();
+        });
+
+        mrx_reader.join().unwrap();
+        mtx_writer.join().unwrap();
+    };
 
     let gimbal_pins = GimbalBuilder::pan_dir(pins.gpio14.downgrade_output().into())
         .pan_step(pins.gpio15.downgrade_output().into())
